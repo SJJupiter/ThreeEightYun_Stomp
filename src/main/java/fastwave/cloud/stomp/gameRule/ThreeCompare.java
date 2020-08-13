@@ -670,7 +670,7 @@ public class ThreeCompare {
                 a.setQi(a.getQi()+1);
             } else if ("adugen".equals(bAttackName)) {
                 if (!b.getIsCompare()) {
-                    b.setQi(a.getQi() - 2);
+                    b.setQi(b.getQi() - 2);
                 }
                 retmsg = "什么都没发生";
             }

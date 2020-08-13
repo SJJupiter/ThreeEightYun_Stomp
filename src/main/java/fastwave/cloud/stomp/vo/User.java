@@ -20,6 +20,8 @@ public class User {
     //判断气足不足够
     private boolean hasNoQi;
 
+    //获胜场数
+
     public User() {
     }
 
@@ -32,6 +34,14 @@ public class User {
         this.attackUser = "";
         this.isCompare = false;
         this.hasNoQi = false;
+    }
+
+    public boolean getCompare() {
+        return isCompare;
+    }
+
+    public void setCompare(boolean compare) {
+        isCompare = compare;
     }
 
     public boolean isHasNoQi() {

@@ -6,6 +6,8 @@ import java.util.List;
 public class RoomInfo {
     private int leftPlayerNum;
     private int playerNum;
+    //倒计时时间
+    private int time;
     private List<User> onlineUserList;
     //用来每回合的比较，回合结束时就清空
     private List<User> AttackedUserList;
@@ -13,16 +15,25 @@ public class RoomInfo {
     private List<User> readyNextUserList;
 
     public RoomInfo() {
-        //剩余玩家人数
+        //游戏中剩余玩家人数
         this.leftPlayerNum = 0;
         //几人场
         this.playerNum = 0;
+        this.time = 0;
         //在线玩家池
         this.onlineUserList = new ArrayList<>();
         //已经攻击的玩家池
         AttackedUserList = new ArrayList<>();
 
         readyNextUserList = new ArrayList<>();
+    }
+
+    public int getTime() {
+        return time;
+    }
+
+    public void setTime(int time) {
+        this.time = time;
     }
 
     public List<User> getReadyNextUserList() {

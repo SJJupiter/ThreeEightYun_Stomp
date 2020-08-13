@@ -2,6 +2,7 @@ package fastwave.cloud.stomp.controller;
 
 import com.alibaba.fastjson.JSON;
 import fastwave.cloud.stomp.gameRule.ThreeCompare;
+import fastwave.cloud.stomp.vo.RoomInfo;
 import fastwave.cloud.stomp.vo.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -16,8 +17,6 @@ import java.util.Map;
 public class GameStompController {
     @Autowired
     private SimpMessagingTemplate template;
-
-    StringBuilder sb = new StringBuilder();
 
     //死亡颜色红色
     String deadColorStyle = "background-color: #ee2746;  border-radius: 5px;";
@@ -38,44 +37,46 @@ public class GameStompController {
         user.setAttackUser(choosedUser);
         user.setIsCompare(false);
         user.setHasNoQi(false);
-        //已经点击攻击的UserList
-        List<User> readyUserList = MapPool.roomMap.get(roomId).getAttackedUserList();
-        readyUserList.add(user);
 
-        sb.append("(用户： "+fromUserId + ")--> (攻击招式：" + choosedAttack + ")--> (攻击目标：" + choosedUser+ ")\n");
+        RoomInfo room = MapPool.roomMap.get(roomId);
+        //已经点击攻击的UserList
+        List<User> readyUserList = room.getAttackedUserList();
+        readyUserList.add(user);
+        MapPool.roomMap.put(roomId,room);
+
         System.out.println("房间： "+roomId+"-->用户： "+fromUserId + "--> 攻击招式：" + choosedAttack + "--> 攻击目标：" + choosedUser);
 
+        template.convertAndSend("/topic/room_"+roomId, "玩家"+fromUserId+"已经攻击......");
+
+
+        System.out.println("已攻击人数： "+MapPool.roomMap.get(roomId).getAttackedUserList().size()+"-->剩余人数： "+MapPool.roomMap.get(roomId).getLeftPlayerNum());
+
         //攻击人满则比较
-        if(readyUserList.size()== MapPool.roomMap.get(roomId).getLeftPlayerNum()){
+        if(MapPool.roomMap.get(roomId).getAttackedUserList().size()== MapPool.roomMap.get(roomId).getLeftPlayerNum()){
             //比较
             ThreeCompare compare = new ThreeCompare();
             String result = compare.circleCompare(readyUserList);
 
             //玩家信息更新
             Map<String,Object> attackedUserFlash = new HashMap<>();
-            for (int i=0;i<readyUserList.size();i++){
+            for (int i=0;i<MapPool.roomMap.get(roomId).getAttackedUserList().size();i++){
                 attackedUserFlash.put("user"+i, readyUserList.get(i).getName());
-            }
-            for (int i=0;i<readyUserList.size();i++){
                 attackedUserFlash.put("blood"+i, readyUserList.get(i).getBlood());
-            }
-            for (int i=0;i<readyUserList.size();i++){
                 attackedUserFlash.put("qi"+i, readyUserList.get(i).getQi());
-            }
-            //判断是否死亡
-            for (int i = 0; i < readyUserList.size(); i++) {
+                 //上回合攻击招式和攻击目标
+                attackedUserFlash.put("lastAttackWay"+i, readyUserList.get(i).getAttackName());
+                attackedUserFlash.put("lastAttackUser"+i, readyUserList.get(i).getAttackUser());
+                //判断是否死亡
                 if(readyUserList.get(i).getBlood()==0){
                     attackedUserFlash.put("lifeColor"+i, deadColorStyle);
                     attackedUserFlash.put("attackbtnDisabled"+i, true);
-                    attackedUserFlash.put("nextbtnDisabled"+i, false);
                     MapPool.roomMap.get(roomId).setLeftPlayerNum(MapPool.roomMap.get(roomId).getLeftPlayerNum()-1);
                 }else {
                     attackedUserFlash.put("lifeColor"+i, aliveColorStyle);
-                    attackedUserFlash.put("btnDisabled"+i, false);
+                    attackedUserFlash.put("attackbtnDisabled"+i, false);
                 }
-               }
-            attackedUserFlash.put("leftNum",readyUserList.size());
-            attackedUserFlash.put("result",sb.toString());
+            }
+            attackedUserFlash.put("leftNum", readyUserList.size());
             String destination = "/topic/attackResult_" + roomId;
             template.convertAndSend(destination, JSON.toJSONString(attackedUserFlash));
 
@@ -83,21 +84,25 @@ public class GameStompController {
             System.out.println("房间"+roomId+"-->结果: "+result);
             System.out.println();
 
-            //清空sb，否则带上上轮
-            sb.setLength(0);
-
-
             //判断游戏是否结束
             if (MapPool.roomMap.get(roomId).getLeftPlayerNum()==0){
-                template.convertAndSend("/topic/room_" + roomId,"平局!!!");
+                String gameOverMsg = "平局!!!";
+//                //获胜场数加一
+//                for (User item : MapPool.roomMap.get(roomId).getOnlineUserList()){
+//                    item.setWinNum(item.getWinNum()+1);
+//                }
+                template.convertAndSend("/topic/gameOver_" + roomId,gameOverMsg);
                 MapPool.roomMap.get(roomId).setLeftPlayerNum(MapPool.roomMap.get(roomId).getPlayerNum());
             }
             if (MapPool.roomMap.get(roomId).getLeftPlayerNum()==1){
-                template.convertAndSend("/topic/room_" + roomId,readyUserList.get(0).getName()+" is WINNER!!!");
+                String winner =  readyUserList.get(0).getName();
+                String gameOverMsg = winner+" is WINNER!!!";
+                template.convertAndSend("/topic/gameOver_" + roomId, gameOverMsg);
                 MapPool.roomMap.get(roomId).setLeftPlayerNum(MapPool.roomMap.get(roomId).getPlayerNum());
             }
 
             readyUserList.clear();
+            MapPool.roomMap.put(roomId,room);
         }else {
             String destination = "/queue/attackResult_" + fromUserId;
             template.convertAndSend(destination, "请等待其他玩家攻击完成......");
